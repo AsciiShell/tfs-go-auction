@@ -1,0 +1,31 @@
+image: golangci/golangci-lint:v1.15.0
+
+variables:
+  PACKAGE_PATH: /go/src/gitlab.com/asciishell/tfs-go-auktion
+
+.anchors:
+  - &inject-gopath
+      mkdir -p $(dirname ${PACKAGE_PATH})
+      && ln -s ${CI_PROJECT_DIR} ${PACKAGE_PATH}
+      && cd ${PACKAGE_PATH}
+
+
+stages:
+  - lint-and-test
+  - print-success
+test:
+  stage: lint-and-test
+  before_script:
+    - *inject-gopath
+  script:
+    - go test -v ./...
+lint:
+  stage: lint-and-test
+  before_script:
+    - *inject-gopath
+  script:
+    - golangci-lint run ./...
+print-success:
+  stage: print-success
+  script:
+    - echo "Success"

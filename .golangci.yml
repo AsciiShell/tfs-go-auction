@@ -1,0 +1,75 @@
+run:
+  deadline: 1m
+  tests: true
+  silent: false
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+  govet:
+    check-shadowing: true
+    use-installed-packages: false
+  golint:
+    # minimal confidence for issues, default is 0.8
+    min-confidence: 0.8
+  gofmt:
+    simplify: true
+  gocyclo:
+    min-complexity: 10
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  depguard:
+    list-type: blacklist
+    include-go-root: false
+    packages:
+      - github.com/davecgh/go-spew/spew
+  misspell:
+    locale: US
+  lll:
+    # max line length, lines longer will be reported. Default is 120.
+    # '\t' is counted as 1 character by default, and can be changed with the tab-width option
+    line-length: 120
+    # tab width in spaces. Default to 1.
+    tab-width: 1
+  unused:
+    check-exported: false
+  unparam:
+    algo: cha
+    check-exported: false
+  nakedret:
+    max-func-lines: 30
+  prealloc:
+    simple: true
+    range-loops: true # Report preallocation suggestions on range loops, true by default
+    for-loops: false # Report preallocation suggestions on for loops, false by default
+
+linters:
+  enable-all: true
+  disable:
+    - maligned
+    - prealloc
+    - lll
+  fast: false
+
+
+issues:
+  exclude:
+    - G104 # already check in `errcheck` linter
+    - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv)|render\.Render. is not checked
+    - (comment on exported (method|function|type|const)|should have( a package)? comment|comment should be of the form)
+
+  # Independently from option `exclude` we use default exclude patterns,
+  # it can be disabled by this option. To list all
+  # excluded by default patterns execute `golangci-lint run --help`.
+  # Default value for this option is true.
+  exclude-use-default: true
+  max-per-linter: 0
+  max-same: 0
+  new: false
+  new-from-rev: origin/master
