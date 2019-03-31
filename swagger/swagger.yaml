@@ -1,0 +1,492 @@
+openapi: 3.0.0
+info:
+  description: API онлайн-аукциона
+  version: '1.0'
+  title: Auction API, Tinkoff Fintech School
+
+servers:
+  - url: '/v1/auction'
+
+paths:
+  /signup:
+    post:
+      summary: Зарегистрировать пользователя
+      description: Метод регистрирует пользователя
+      operationId: SignUp
+      tags: [auth]
+      requestBody:
+        description: Информация о пользователе
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                  description: Имя
+                  example: Павел
+                last_name:
+                  type: string
+                  description: Фамилия
+                  example: Дуров
+                birthday:
+                  type: string
+                  format: date
+                  description: Дата рождения
+                  example: "1984-10-10"
+                  default: ""
+                email:
+                  type: string
+                  format: email
+                  description: Email
+                  example: durov@telegram.org
+                password:
+                  type: string
+                  format: password
+                  description: Пароль
+                  example: qwerty
+      responses:
+        '201':
+          description: Пользователь зарегистрирован
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: >
+            Невозможно зарегистрировать пользователя, конфликт.
+            Например, email уже существует в системе
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Сообщение об ошибке
+                    example: email already exists
+  /signin:
+    post:
+      summary: Аутентифицировать пользователя (выполнить вход)
+      description: >
+        Метод авторизует пользователя
+      operationId: SignIn
+      tags: [auth]
+      requestBody:
+        description: Информация о пользователе
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email
+                  example: durov@telegram.org
+                password:
+                  type: string
+                  format: password
+                  description: Пароль
+                  example: qwerty
+      responses:
+        '200':
+          description: Пользователь зарегистрирован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token_type:
+                    type: string
+                    description: Тип токена
+                    enum: [bearer]
+                  access_token:
+                    type: string
+                    description: Токен
+                    example: ex8RYZ5ZbfGGY8EP
+        '401':
+          description: Пользователь не авторизован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Сообщение об ошибке
+                    example: invalid email or password
+
+  /users/{id}:
+    get:
+      summary: Получить пользователя
+      description: >
+        Метод возвращает информацию о пользователе.
+        При id = 0 возвращается информация о пользователе, который выполняет запрос.
+      operationId: GetUser
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор пользователя. 0 - текущий пользователь
+          schema:
+            type: integer
+            format: int64
+          required: true
+      responses:
+        '200':
+          description: Успешный ответ с сущностью пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Обновить информацию о пользователе
+      description: >
+        Обновлять можно информацию только о текущем пользователе, т.е. id = 0.
+        Обновление email-а, пароля и системных полей не допускается
+      operationId: UpdateUser
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор пользователя
+          schema:
+            type: integer
+            format: int64
+            enum: [0]
+          required: true
+      requestBody:
+        description: Сущность обновлённого пользователя
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                  description: Имя
+                  example: Павел
+                last_name:
+                  type: string
+                  description: Фамилия
+                  example: Дуров
+                birthday:
+                  type: string
+                  format: date
+                  description: Дата рождения
+                  example: "1984-10-10"
+                  default: ""
+      responses:
+        '200':
+          description: Успешный ответ с сущностью пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/{id}/lots:
+    get:
+      summary: Получить список лотов пользователя
+      operationId: GetUserLots
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор пользователя. 0 - текущий пользователь
+          schema:
+            type: integer
+            format: int64
+          required: true
+        - in: query
+          name: type
+          description: Тип запрашиваемых лотов пользователя. Если пустая строка - выдать все
+          schema:
+            type: string
+            enum: ["own", "buyed", ""]
+            default: ""
+      responses:
+        '200':
+          description: Успешный ответ с лотами пользователя
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /lots:
+    post:
+      summary: Создать лот
+      operationId: AddLot
+      tags: [lots]
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Информация для создания лота
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotToCreateUpdate'
+      responses:
+        '200':
+          description: Успешный ответ с созданным лотом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /lots/{id}:
+    get:
+      summary: Получить лот по id
+      operationId: GetLot
+      tags: [lots]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор лота
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          required: true
+        - in: query
+          name: type
+          description: Тип запрашиваемых лотов пользователя. Если пустая строка - выдать все
+          schema:
+            type: string
+            enum: ["own", "buyed", ""]
+            default: ""
+      responses:
+        '200':
+          description: Успешный ответ с лотом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Обновить лот
+      description: >
+        Обновлять можно лоты, которые имеют статус created.
+      tags: [lots]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор лота
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          required: true
+      requestBody:
+        description: Сущность обновлённого лота
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotToCreateUpdate'
+      responses:
+        '200':
+          description: Успешный ответ с обновлённым лотом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    BadRequest:
+      description: Неверные входные данные
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Контент по переданному идентификатору не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Неавторизованный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Сообщение об ошибке
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Идентификатор пользователя
+          example: 1
+        first_name:
+          type: string
+          description: Имя
+          example: Павел
+        last_name:
+          type: string
+          description: Фамилия
+          example: Дуров
+        birthday:
+          type: string
+          format: date
+          description: Дата рождения
+          example: "1984-10-10"
+          default: ""
+        email:
+          type: string
+          format: email
+          description: Email, доступен только его владельцу
+          example: durov@telegram.org
+        created_at:
+          type: string
+          format: date-time
+    ShortUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Идентификатор пользователя
+          example: 1
+        first_name:
+          type: string
+          description: Имя
+          example: Павел
+        last_name:
+          type: string
+          description: Фамилия
+          example: Дуров
+    Lot:
+      type: object
+      required:
+        - id
+        - title
+        - min_price
+        - status
+        - end_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Идентификатор лота
+          example: 1
+        title:
+          type: string
+          description: Заголовок лота. Не может быть пустым
+          example: Apple iPhone XS
+        description:
+          type: string
+          description: Описание лота
+          example: Новый, подарили, торгую за ненадобностью
+        min_price:
+          type: number
+          format: float
+          minimum: 1
+        price_step:
+          type: integer
+          description: Шаг изменения цены
+          minimum: 1
+          default: 1
+        status:
+          type: string
+          description: >
+            Статус лота. 'created' - лот создан, но не торгуется;
+              'active' - лот торгуется; 'finished' - торги по лоту завершены.
+          enum: [created, active]
+          default: inactive
+        end_at:
+          type: string
+          format: date-time
+          description: Дата завершения торгов по лоту
+        created_at:
+          type: string
+          format: date-time
+          description: Дата создания лота
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата обновления лота. Если обновления не было, то совпадает с created_at
+        creator:
+          $ref: '#/components/schemas/ShortUser'
+        buyer:
+          $ref: '#/components/schemas/ShortUser'
+    LotToCreateUpdate:
+      type: object
+      required:
+        - title
+        - min_price
+        - end_at
+      properties:
+        title:
+          type: string
+          description: Заголовок лота. Не может быть пустым
+          example: Apple iPhone XS
+        description:
+          type: string
+          description: Описание лота
+          example: Новый, подарили, торгую за ненадобностью
+        min_price:
+          type: number
+          format: float
+          minimum: 1
+        price_step:
+          type: integer
+          description: Шаг изменения цены
+          minimum: 1
+          default: 1
+        end_at:
+          type: string
+          format: date-time
+          description: Дата завершения торгов по лоту
