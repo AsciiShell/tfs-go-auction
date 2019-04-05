@@ -1,4 +1,4 @@
-image: golangci/golangci-lint:v1.15.0
+image: golangci/golangci-lint:v1.16.0
 
 variables:
   PACKAGE_PATH: /go/src/gitlab.com/asciishell/tfs-go-auktion
@@ -24,7 +24,7 @@ lint:
   before_script:
     - *inject-gopath
   script:
-    - golangci-lint run ./...
+    - golangci-lint run -c .golangci.yml ./...
 print-success:
   stage: print-success
   script:

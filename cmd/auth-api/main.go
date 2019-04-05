@@ -2,52 +2,76 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"gitlab.com/asciishell/tfs-go-auktion/internal/database"
+	"gitlab.com/asciishell/tfs-go-auktion/pkg/log"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
-var db *gorm.DB
+type config struct {
+	DB          database.DBCredential
+	HTTPAddress string
+	HTTPTimeout time.Duration
+	MaxRequests int
+	Migrate     bool
+}
 
-func main() {
-	const MaxConcurrentRequest = 100
-	var dbUser, dbPassword, dbHost, dbTable string
-	flag.StringVar(&dbUser, "dbuser", "postgres", "DB username")
-	flag.StringVar(&dbPassword, "dbpassword", "", "DB password")
-	flag.StringVar(&dbHost, "dbhost", "localhost:5432", "DB host with port")
-	flag.StringVar(&dbTable, "dbtable", "auction", "DB password")
+func loadConfig() config {
+	cfg := config{}
+	flag.StringVar(&cfg.DB.User, "dbuser", "postgres", "DB username")
+	flag.StringVar(&cfg.DB.Password, "dbpassword", "", "DB password")
+	flag.StringVar(&cfg.DB.Host, "dbhost", "localhost:5432", "DB host with port")
+	flag.StringVar(&cfg.DB.Table, "dbtable", "auction", "DB table")
+	flag.StringVar(&cfg.HTTPAddress, "address", ":8000", "Server address")
+	flag.IntVar(&cfg.MaxRequests, "max-requests", 100, "Maximum number of requests")
+	flag.DurationVar(&cfg.HTTPTimeout, "http-timeout", 5*time.Second, "HTTP timeout")
+	flag.BoolVar(&cfg.Migrate, "migrate", false, "Run migrations")
 	flag.Parse()
-	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable&fallback_application_name=fintech-app", dbUser, dbPassword, dbHost, dbTable)
-	_, err := gorm.Open("postgres", dsn)
+	return cfg
+}
+func main() {
+	cfg := loadConfig()
+
+	db, err := database.NewDataBaseStorage(cfg.DB)
 	if err != nil {
-		log.Fatalf("can't connect to database, dsn %s:%s", dsn, err)
+		log.New().Fatalf("can't use database:%s", err)
 	}
+	defer func() {
+		_ = db.DB.Close()
+	}()
+	if cfg.Migrate {
+		db.Migrate()
+		log.New().Info("Migrate completed")
+		return
+	}
+
+	handler := NewAuctionHandler(db)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Throttle(MaxConcurrentRequest))
+	r.Use(middleware.Throttle(cfg.MaxRequests))
 
-	// r.Use(middleware.Timeout(5 * time.Second))
+	r.Use(middleware.Timeout(cfg.HTTPTimeout))
 
-	r.Route("/api/v1", func(r chi.Router) {
-		r.Post("/signup", PostSignup)
-		r.Post("/signin", PostSignin)
-		r.Put("/users/{id}", PutUser)
+	r.Route("/v1/auction", func(r chi.Router) {
+		r.Post("/signup", handler.PostSignup)
+		r.Post("/signin", handler.PostSignin)
+		r.Put("/users/{id}", handler.PutUser)
 	})
 
 	workDir, _ := os.Getwd()
 	filesDir := filepath.Join(workDir, "swagger")
 	FileServer(r, "/swagger", http.Dir(filesDir))
-	if err := http.ListenAndServe(":5000", r); err != nil {
-		log.Fatal(err)
+	if err := http.ListenAndServe(cfg.HTTPAddress, r); err != nil {
+		log.New().Fatalf("server error:%s", err)
 	}
 }
 
@@ -59,7 +83,7 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 	fs := http.StripPrefix(path, http.FileServer(root))
 
 	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		r.Get(path, http.RedirectHandler(path+"/", http.StatusTemporaryRedirect).ServeHTTP)
 		path += "/"
 	}
 	path += "*"
