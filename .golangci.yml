@@ -72,4 +72,4 @@ issues:
   max-per-linter: 0
   max-same: 0
   new: false
-  new-from-rev: origin/master
+  #new-from-rev: origin/master

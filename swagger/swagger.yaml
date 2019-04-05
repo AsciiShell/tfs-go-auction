@@ -234,6 +234,26 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
   /lots:
+    get:
+      summary: Получить список лотов
+      operationId: GetLots
+      tags: [lots]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          description: Статус ожидаемых лотов (необязательный)
+          in: query
+          schema:
+            type: string
+            enum: [created, active, finished]
+      responses:
+        '200':
+          description: Массив лотов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
     post:
       summary: Создать лот
       operationId: AddLot
@@ -258,6 +278,41 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /lots/{id}/buy:
+    put:
+      summary: Купить лот
+      operationId: BuyLot
+      tags: [lots]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор лота
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          required: true
+      requestBody:
+        description: Цена покупки
+        content:
+          aplication/json:
+            schema:
+              $ref: '#/components/schemas/BuyLot'
+      responses:
+        '200':
+          description: Успешный ответ с лотом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/ConflictError'
   /lots/{id}:
     get:
       summary: Получить лот по id
@@ -274,13 +329,6 @@ paths:
             format: int64
             minimum: 1
           required: true
-        - in: query
-          name: type
-          description: Тип запрашиваемых лотов пользователя. Если пустая строка - выдать все
-          schema:
-            type: string
-            enum: ["own", "buyed", ""]
-            default: ""
       responses:
         '200':
           description: Успешный ответ с лотом
@@ -349,6 +397,12 @@ components:
             $ref: '#/components/schemas/Error'
     Unauthorized:
       description: Неавторизованный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ConflictError:
+      description: Конфликт при выполнении операции
       content:
         application/json:
           schema:
@@ -430,6 +484,11 @@ components:
           type: string
           description: Описание лота
           example: Новый, подарили, торгую за ненадобностью
+        buy_price:
+          type: number
+          format: float
+          description: Текущая цена лота, если покупатель не найден, то поле не возвращается
+          minimum: 1
         min_price:
           type: number
           format: float
@@ -444,8 +503,8 @@ components:
           description: >
             Статус лота. 'created' - лот создан, но не торгуется;
               'active' - лот торгуется; 'finished' - торги по лоту завершены.
-          enum: [created, active]
-          default: inactive
+          enum: [created, active, finished]
+          default: created
         end_at:
           type: string
           format: date-time
@@ -490,3 +549,11 @@ components:
           type: string
           format: date-time
           description: Дата завершения торгов по лоту
+    BuyLot:
+      type: object
+      properties:
+        price:
+          type: number
+          format: float
+          description: Цена покупки
+          minimum: 1
