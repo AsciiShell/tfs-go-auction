@@ -1,0 +1,6 @@
+version: '3'
+services:
+  hello:
+    image: "asciishell/tfs-go-auction:${IMAGE_TAG}"
+    ports:
+      - "8000:8000"
