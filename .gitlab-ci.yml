@@ -1,31 +1,82 @@
-image: golangci/golangci-lint:v1.16.0
-
-variables:
-  PACKAGE_PATH: /go/src/gitlab.com/asciishell/tfs-go-auktion
-
-.anchors:
-  - &inject-gopath
-      mkdir -p $(dirname ${PACKAGE_PATH})
-      && ln -s ${CI_PROJECT_DIR} ${PACKAGE_PATH}
-      && cd ${PACKAGE_PATH}
-
-
 stages:
   - lint-and-test
-  - print-success
-test:
+  - build
+  - deploy
+
+variables:
+  # When using dind, it's wise to use the overlayfs driver for
+  # improved performance.
+  DOCKER_DRIVER: overlay2
+
+unit_tests:
+  image: golang:1.12
   stage: lint-and-test
   before_script:
-    - *inject-gopath
+    - mkdir -p /go/src/gitlab.com/asciishell/
+    - cp -r ../tfs-go-auction /go/src/gitlab.com/asciishell/
+    - cd /go/src/gitlab.com/asciishell/tfs-go-auction
   script:
-    - go test -v ./...
+    - make test
+  tags: [docker]
+
 lint:
-  stage: lint-and-test
+  image: golangci/golangci-lint:v1.16.0
   before_script:
-    - *inject-gopath
+    - mkdir -p /go/src/gitlab.com/asciishell/
+    - cp -r ../tfs-go-auction /go/src/gitlab.com/asciishell/
+    - cd /go/src/gitlab.com/asciishell/tfs-go-auction
+  stage: lint-and-test
+  script: make lint
+  tags: [docker]
+
+build:
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - apk update && apk add --virtual build-dependencies build-base git
+    - docker info
   script:
-    - golangci-lint run -c .golangci.yml ./...
-print-success:
-  stage: print-success
+    - make docker-images
+    - docker login -u $DOCKER_HUB_LOGIN -p $DOCKER_HUB_PASSWORD
+    - make docker-push
+  after_script:
+    - docker logout
+  tags: [docker]
+
+deploy:
+  image: docker:latest
+  stage: deploy
+  variables:
+    TARGET_HOST: auction.asciishell.site
+  environment:
+    name: dev
+    url: http://auction.asciishell.site
+  services:
+    - docker:dind
+  before_script:
+    - apk update && apk add --virtual build-dependencies build-base git openssh-client
+    - docker info
+    - eval $(ssh-agent -s)
+    - echo $CI_SSH_PRIVATE_KEY | base64 -d | tr -d '\r' | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
   script:
-    - echo "Success"
+    - make ci-deploy
+  only:
+    - master
+    - tags
+  tags: [docker]
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploy to production server"
+  environment:
+    name: production
+    url: http://auction.asciishell.site
+  when: manual
+  only:
+    - tags

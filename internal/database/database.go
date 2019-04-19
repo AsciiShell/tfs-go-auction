@@ -3,22 +3,16 @@ package database
 import (
 	"fmt"
 
-	"gitlab.com/asciishell/tfs-go-auktion/internal/session"
-	"gitlab.com/asciishell/tfs-go-auktion/internal/user"
+	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
+
+	"gitlab.com/asciishell/tfs-go-auction/internal/session"
+	"gitlab.com/asciishell/tfs-go-auction/internal/user"
 
 	"github.com/jinzhu/gorm"
 	// Registry postgres
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
 )
-
-type Storage interface {
-	Migrate()
-	GetUser(u *user.User) error
-	AddUser(u *user.User) error
-	GetSession(s *session.Session) error
-	AddSession(s *session.Session) error
-}
 
 type DataBase struct {
 	DB *gorm.DB
@@ -45,36 +39,65 @@ func NewDataBaseStorage(credential DBCredential) (*DataBase, error) {
 }
 
 func (d *DataBase) Migrate() {
-	d.DB.AutoMigrate(&user.User{}, &session.Session{})
+	d.DB.AutoMigrate(&user.User{}, &session.Session{}, &lot.Lot{})
 	d.DB.Model(&session.Session{}).AddForeignKey("user_id", "users(id)", "CASCADE", "CASCADE")
 }
 func (d *DataBase) GetUser(u *user.User) error {
-	d.DB = d.DB.Where(u).First(u)
-	if err := d.DB.Error; err != nil {
+	if err := d.DB.Where(&u).First(&u).Error; err != nil {
 		return errors.Wrapf(err, "user not found %+v", u)
 	}
 	return nil
 }
 func (d *DataBase) AddUser(u *user.User) error {
-	d.DB = d.DB.Create(u)
-	if err := d.DB.Error; err != nil {
+	if err := d.DB.Create(&u).Error; err != nil {
 		return errors.Wrap(err, "can't create user")
 	}
 	return nil
 }
 
 func (d *DataBase) GetSession(s *session.Session) error {
-	d.DB = d.DB.Where(s).First(s)
-	if err := d.DB.Error; err != nil {
+	if err := d.DB.Where(&s).First(&s).Error; err != nil {
 		return errors.Wrapf(err, "session not found %+v", s)
 	}
 	return nil
 }
 
 func (d *DataBase) AddSession(s *session.Session) error {
-	d.DB = d.DB.Create(s)
-	if err := d.DB.Error; err != nil {
+	if err := d.DB.Create(&s).Error; err != nil {
 		return errors.Wrap(err, "can't create session")
+	}
+	return nil
+}
+
+func (d *DataBase) GetLots() ([]lot.Lot, error) {
+	var result []lot.Lot
+	d.DB.Find(&result)
+	return result, nil
+}
+
+func (d *DataBase) GetLot(l *lot.Lot) error {
+	if err := d.DB.Where(&l).First(&l).Error; err != nil {
+		return errors.Wrapf(err, "lot not found %+v", l)
+	}
+	return nil
+}
+
+func (d *DataBase) AddLot(l *lot.Lot) error {
+	if err := d.DB.Create(&l).Error; err != nil {
+		return errors.Wrap(err, "can't create lot")
+	}
+	return nil
+}
+
+func (d *DataBase) SetLot(l *lot.Lot) error {
+	if err := d.DB.Save(&l).Error; err != nil {
+		return errors.Wrap(err, "can't set lot")
+	}
+	return nil
+}
+func (d *DataBase) UpdateUser(u *user.User, n *user.User) error {
+	if err := d.DB.Where(&u).Update(n).Error; err != nil {
+		return errors.Wrap(err, "can't update user")
 	}
 	return nil
 }

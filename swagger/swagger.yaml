@@ -261,7 +261,7 @@ paths:
       security:
         - bearerAuth: []
       requestBody:
-        description: Информация для создания лота
+        description: Информация для создания лота. Начать аукцион сразу можно, если передать status = active.
         required: true
         content:
           application/json:
@@ -343,7 +343,7 @@ paths:
     put:
       summary: Обновить лот
       description: >
-        Обновлять можно лоты, которые имеют статус created.
+        Обновлять можно лоты, которые имеют статус created. Путём изменения статуса лота на active можно начать аукцион.
       tags: [lots]
       security:
         - bearerAuth: []
@@ -549,6 +549,13 @@ components:
           type: string
           format: date-time
           description: Дата завершения торгов по лоту
+        status:
+          type: string
+          description: >
+            Статус лота. 'created' - лот создан, но не торгуется;
+              'active' - лот торгуется; Статус 'finished' при обновлении и создании не используется.
+          enum: [created, active, finished]
+          default: created
     BuyLot:
       type: object
       properties:

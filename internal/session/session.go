@@ -2,7 +2,7 @@ package session
 
 import (
 	"crypto/rand"
-	"encoding/json"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -20,7 +20,7 @@ const TokenLifeTime = time.Hour * 24
 
 const alphabet = "qwertyuiopasdfghjlzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890"
 
-const tokenLen = 255
+const tokenLen = 20
 
 func GenerateToken() (string, error) {
 	result := make([]uint8, tokenLen)
@@ -34,6 +34,6 @@ func GenerateToken() (string, error) {
 	return string(result), nil
 }
 
-func (s Session) Marshal() ([]byte, error) {
-	return json.Marshal(s)
+func (s Session) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`{"token_type":"bearer","access_token":"%s"}`, s.SessionID)), nil
 }

@@ -1,4 +1,4 @@
-# tfs-go-auktion
+# tfs-go-auction
 
 Author - Aleksey Podchezertsev
 

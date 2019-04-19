@@ -1,20 +1,20 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"gitlab.com/asciishell/tfs-go-auktion/internal/database"
+	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
 
 	"github.com/pkg/errors"
-	"gitlab.com/asciishell/tfs-go-auktion/internal/services"
-	"gitlab.com/asciishell/tfs-go-auktion/internal/session"
+	"gitlab.com/asciishell/tfs-go-auction/internal/services"
+	"gitlab.com/asciishell/tfs-go-auction/internal/session"
+	"gitlab.com/asciishell/tfs-go-auction/internal/storage"
 )
 
-func Signin(email string, password string, storage database.Storage) (session.Session, error) {
-	u, err := services.FindUserByEmail(email, password, nil)
+func Signin(email string, password string, storage *storage.Storage) (session.Session, error) {
+	u, err := services.FindUserByEmail(email, password, storage)
 	if err != nil {
 		return session.Session{}, err
 	}
@@ -25,18 +25,14 @@ func Signin(email string, password string, storage database.Storage) (session.Se
 	return sess, nil
 }
 
-func preValidateToken(r *http.Request, storage database.Storage) (*session.Session, error) {
+func HandleToken(r *http.Request, s *storage.Storage) (*session.Session, error) {
 	token := strings.Split(r.Header.Get("Authorization"), " ")
 	if len(token) != 2 || token[0] != "Bearer" {
-		return nil, fmt.Errorf("invalid token %s", r.Header.Get("Authorization"))
+		return nil, errs.ErrUnauthorized
 	}
-	return services.GetSession(token[1], storage)
-}
-func ValidateToken(r *http.Request, storage database.Storage) bool {
-	sess, ok := preValidateToken(r, storage)
-	return ok == nil && sess.ValidUntil.After(time.Now())
-}
-func ValidateTokenUser(r *http.Request, uID int, storage database.Storage) bool {
-	sess, ok := preValidateToken(r, storage)
-	return ok == nil && sess.ValidUntil.After(time.Now()) && sess.UserID == uID
+	sess, err := services.GetSession(token[1], s)
+	if err != nil || sess.ValidUntil.Before(time.Now()) {
+		return nil, errs.ErrNotFound
+	}
+	return sess, nil
 }

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/asciishell/tfs-go-auktion/internal/database"
-	"gitlab.com/asciishell/tfs-go-auktion/pkg/log"
+	"gitlab.com/asciishell/tfs-go-auction/internal/database"
+	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -31,7 +31,7 @@ func loadConfig() config {
 	flag.StringVar(&cfg.DB.Table, "dbtable", "auction", "DB table")
 	flag.StringVar(&cfg.HTTPAddress, "address", ":8000", "Server address")
 	flag.IntVar(&cfg.MaxRequests, "max-requests", 100, "Maximum number of requests")
-	flag.DurationVar(&cfg.HTTPTimeout, "http-timeout", 5*time.Second, "HTTP timeout")
+	flag.DurationVar(&cfg.HTTPTimeout, "http-timeout", 500*time.Second, "HTTP timeout")
 	flag.BoolVar(&cfg.Migrate, "migrate", false, "Run migrations")
 	flag.Parse()
 	return cfg
@@ -59,12 +59,24 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Throttle(cfg.MaxRequests))
 
-	r.Use(middleware.Timeout(cfg.HTTPTimeout))
+	//r.Use(middleware.Timeout(cfg.HTTPTimeout))
 
 	r.Route("/v1/auction", func(r chi.Router) {
 		r.Post("/signup", handler.PostSignup)
 		r.Post("/signin", handler.PostSignin)
-		r.Put("/users/{id}", handler.PutUser)
+		r.Route("/users", func(r chi.Router) {
+			r.Use(handler.Authenticator)
+			r.Put("/{id}", handler.PutUser)
+			r.Get("/{id}", handler.GetUser)
+			r.Get("/{id}/lots", handler.NotImplemented)
+		})
+		r.Route("/lots", func(r chi.Router) {
+			r.Get("/", handler.NotImplemented)
+			r.Post("/", handler.NotImplemented)
+			r.Put("/{id}/buy", handler.NotImplemented)
+			r.Get("/{id}", handler.NotImplemented)
+			r.Put("/{id}", handler.NotImplemented)
+		})
 	})
 
 	workDir, _ := os.Getwd()
