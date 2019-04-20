@@ -1,6 +1,20 @@
 version: '3'
 services:
-  hello:
-    image: "asciishell/tfs-go-auction:${IMAGE_TAG}"
+  auth-api:
+    image: "asciishell/auth-api:${IMAGE_TAG}"
+    env_file: docker.env
     ports:
       - "8000:8000"
+    depends_on:
+      - db
+    links:
+      - db
+  db:
+    image: postgres:11-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    env_file: docker.env
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+

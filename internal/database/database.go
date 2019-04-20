@@ -2,13 +2,14 @@ package database
 
 import (
 	"fmt"
-
-	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
-
-	"gitlab.com/asciishell/tfs-go-auction/internal/session"
-	"gitlab.com/asciishell/tfs-go-auction/internal/user"
+	"time"
 
 	"github.com/jinzhu/gorm"
+	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
+	"gitlab.com/asciishell/tfs-go-auction/internal/session"
+	"gitlab.com/asciishell/tfs-go-auction/internal/user"
+	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
+
 	// Registry postgres
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/pkg/errors"
@@ -19,21 +20,28 @@ type DataBase struct {
 }
 
 type DBCredential struct {
-	User     string
-	Password string
-	Host     string
-	Table    string
+	User        string
+	Password    string
+	Host        string
+	Database    string
+	Repetitions int
 }
 
 func NewDataBaseStorage(credential DBCredential) (*DataBase, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable&fallback_application_name=fintech-app", credential.User, credential.Password, credential.Host, credential.Table)
-	db, err := gorm.Open("postgres", dsn)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable&fallback_application_name=fintech-app", credential.User, credential.Password, credential.Host, credential.Database)
+	var err error
+	var db *gorm.DB
+	logger := log.New()
+	for i := 0; i < credential.Repetitions; i++ {
+		logger.Infof("Take %d/%d to connect to database", i+1, credential.Repetitions)
+		db, err = gorm.Open("postgres", dsn)
+		if err == nil && db.DB().Ping() == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't connect to database, dsn %s", dsn)
-	}
-	err = db.DB().Ping()
-	if err != nil {
-		return nil, errors.Wrap(err, "can't ping database")
 	}
 	return &DataBase{DB: db}, nil
 }

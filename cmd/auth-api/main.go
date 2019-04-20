@@ -1,12 +1,13 @@
 package main
 
 import (
-	"flag"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gitlab.com/asciishell/tfs-go-auction/pkg/environment"
 
 	"gitlab.com/asciishell/tfs-go-auction/internal/database"
 	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
@@ -20,20 +21,23 @@ type config struct {
 	HTTPAddress string
 	HTTPTimeout time.Duration
 	MaxRequests int
-	Migrate     bool
+	PrintConfig bool
 }
 
 func loadConfig() config {
 	cfg := config{}
-	flag.StringVar(&cfg.DB.User, "dbuser", "postgres", "DB username")
-	flag.StringVar(&cfg.DB.Password, "dbpassword", "", "DB password")
-	flag.StringVar(&cfg.DB.Host, "dbhost", "localhost:5432", "DB host with port")
-	flag.StringVar(&cfg.DB.Table, "dbtable", "auction", "DB table")
-	flag.StringVar(&cfg.HTTPAddress, "address", ":8000", "Server address")
-	flag.IntVar(&cfg.MaxRequests, "max-requests", 100, "Maximum number of requests")
-	flag.DurationVar(&cfg.HTTPTimeout, "http-timeout", 500*time.Second, "HTTP timeout")
-	flag.BoolVar(&cfg.Migrate, "migrate", false, "Run migrations")
-	flag.Parse()
+	cfg.DB.User = environment.GetStr("DB_USER", "auction")
+	cfg.DB.Password = environment.GetStr("DB_PASSWORD", "postgres")
+	cfg.DB.Database = environment.GetStr("DB_DATABASE", "auction")
+	cfg.DB.Host = environment.GetStr("DB_HOST", "localhost:5432")
+	cfg.DB.Repetitions = environment.GetInt("DB_ATTEMPTS", 10)
+	cfg.MaxRequests = environment.GetInt("MAX_REQUESTS", 100)
+	cfg.HTTPAddress = environment.GetStr("ADDRESS", ":8000")
+	cfg.HTTPTimeout = environment.GetDuration("HTTP_TIMEOUT", 500*time.Second)
+	cfg.PrintConfig = environment.GetBool("PRINT_CONFIG", false)
+	if cfg.PrintConfig {
+		log.New().Infof("%+v", cfg)
+	}
 	return cfg
 }
 func main() {
@@ -46,11 +50,8 @@ func main() {
 	defer func() {
 		_ = db.DB.Close()
 	}()
-	if cfg.Migrate {
-		db.Migrate()
-		log.New().Info("Migrate completed")
-		return
-	}
+	db.Migrate()
+	log.New().Info("Migrate completed")
 
 	handler := NewAuctionHandler(db)
 
