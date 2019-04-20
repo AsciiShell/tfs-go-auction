@@ -63,6 +63,6 @@ test:
 
 .PHONY: ci-deploy
 ci-deploy:
-	ssh -t root@$$TARGET_HOST 'cd tfs-go-auction && docker-compose stop'
-	scp ./docker-compose.yml root@$$TARGET_HOST:tfs-go-auction/docker-compose.yml
-	ssh -t root@$$TARGET_HOST 'cd tfs-go-auction && IMAGE_TAG=$(DOCKER_IMAGE_TAG) docker-compose up -d'
+	ssh -t root@$$TARGET_HOST 'cd auth-api && docker-compose stop'
+	scp ./docker-compose.yml root@$$TARGET_HOST:auth-api/docker-compose.yml
+	ssh -t root@$$TARGET_HOST 'cd auth-api && IMAGE_TAG=$(DOCKER_IMAGE_TAG) docker-compose up -d'
