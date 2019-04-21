@@ -78,7 +78,7 @@ test:
 	if [ $(OSFLAG) = "WIN" ]; then \
 		go test -v ./... ; \
 	else \
-		go test -v -race ./... ; \
+		TIMEOUT_MULTIPLY=10 go test -v -race ./... ; \
 	fi
 
 
@@ -87,3 +87,7 @@ ci-deploy:
 	ssh -t root@$$TARGET_HOST 'cd auth-api && docker-compose stop'
 	scp ./docker-compose.yml root@$$TARGET_HOST:auth-api/docker-compose.yml
 	ssh -t root@$$TARGET_HOST 'cd auth-api && IMAGE_TAG=$(DOCKER_IMAGE_TAG) docker-compose up -d'
+
+.PHONY: mock
+mock:
+	mockgen -source=internal/storage/storage.go -destination=internal/mock_storage/mock_storage.go
