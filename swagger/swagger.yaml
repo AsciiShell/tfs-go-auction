@@ -376,6 +376,30 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Удалить лот
+      description: >
+        Метода выполняет soft delete (в БД для лота проставляется значение `deleted_at = now()`),
+        фактического удаления не происходит. Удалять можно только лоты в статусе `created`.
+        Удалять можно только свой лот, чужие удалять нельзя.
+        При удалении уже удалённого лота (у которого `deleted_at != NULL`, возвращаем 404 HTTP-статус.
+      tags: [lots]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          description: Идентификатор лота
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          required: true
+      responses:
+        '204':
+          description: Лот успешно удалён.
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:

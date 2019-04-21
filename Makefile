@@ -16,6 +16,22 @@ DOCKER_BUILDER_IMAGE := golang:1.12
 DOCKER_IMAGE_SPACE ?= asciishell
 DOCKER_IMAGE_TAG ?= $(VERSION)#$$(git rev-parse --abbrev-ref HEAD)
 
+OSFLAG 				:=
+ifeq ($(OS),Windows_NT)
+	OSFLAG = "WIN"
+else
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Linux)
+		OSFLAG += LINUX
+	endif
+	ifeq ($(UNAME_S),Darwin)
+		OSFLAG += OSX
+	endif
+endif
+
+all:
+	@echo $(OSFLAG)
+
 # Build targets
 $(BUILD_DIR):
 	cp -rf $(GOROOT)/pkg/linux_amd64 $(CURDIR)/$(PKG_DIR) || true
@@ -59,7 +75,12 @@ lint:
 
 .PHONY: test
 test:
-	go test -v -race ./...
+	if [ $(OSFLAG) = "WIN" ]; then \
+		go test -v ./... ; \
+	else \
+		go test -v -race ./... ; \
+	fi
+
 
 .PHONY: ci-deploy
 ci-deploy:
