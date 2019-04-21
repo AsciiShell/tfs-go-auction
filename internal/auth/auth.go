@@ -5,9 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
-
 	"github.com/pkg/errors"
+	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
 	"gitlab.com/asciishell/tfs-go-auction/internal/services"
 	"gitlab.com/asciishell/tfs-go-auction/internal/session"
 	"gitlab.com/asciishell/tfs-go-auction/internal/storage"
