@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+
+	"github.com/pkg/errors"
+
+	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
 
 	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
 
@@ -19,14 +24,24 @@ import (
 
 type AuctionHandler struct {
 	storage *storage.Storage
+	logger  log.Logger
 }
 
 type key int
 
 const userKey key = 0
 
-func NewAuctionHandler(storage storage.Storage) *AuctionHandler {
-	return &AuctionHandler{storage: &storage}
+func NewAuctionHandler(storage storage.Storage, logger *log.Logger) *AuctionHandler {
+	return &AuctionHandler{storage: &storage, logger: *logger}
+}
+
+func (h AuctionHandler) logError(r *http.Request, err error) {
+	h.logger.Errorf("%s %s - %s:%+v", r.Method, r.RequestURI, r.Context().Value(userKey), err)
+}
+
+// nolint:unparam,unused
+func (h AuctionHandler) logInfo(r *http.Request, msg string, args ...interface{}) {
+	h.logger.Infof("%s %s - %+v:%s", r.Method, r.RequestURI, r.Context().Value(userKey), fmt.Sprintf(msg, args...))
 }
 
 func (h *AuctionHandler) Authenticator(next http.Handler) http.Handler {
@@ -77,14 +92,12 @@ func (h *AuctionHandler) PostSignin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
 		return
 	}
-	bytes, err := sess.MarshalJSON()
+	err = json.NewEncoder(w).Encode(sess)
 	if err != nil {
-		http.Error(w, "БРРР", http.StatusInternalServerError)
+		h.logError(r, errors.Wrap(err, "can't write session"))
 		return
 	}
-	if _, err = w.Write(bytes); err != nil {
-		log.New().Warnf("Error writing bytes: %v", err)
-	}
+
 }
 
 func (h *AuctionHandler) PutUser(w http.ResponseWriter, r *http.Request) {
@@ -111,14 +124,9 @@ func (h *AuctionHandler) PutUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userData.Update(newUser)
-	bytes, err := json.Marshal(userData)
+	err = json.NewEncoder(w).Encode(userData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	if _, err := w.Write(bytes); err != nil {
-		log.New().Errorf("can't write bytes")
+		h.logError(r, errors.Wrap(err, "can't write user"))
 		return
 	}
 }
@@ -137,17 +145,171 @@ func (h *AuctionHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	bytes, err := json.Marshal(usr)
+	err = json.NewEncoder(w).Encode(usr)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write user"))
+		return
+	}
+}
+func (h *AuctionHandler) GetLots(w http.ResponseWriter, r *http.Request) {
+	t, err := lot.NewStatus(r.URL.Query().Get("status"))
+	selector := lot.Lot{}
+	if err == nil {
+		selector.Status = t.String()
+	}
+	data, err := (*h.storage).GetLots(selector)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.logError(r, errors.Wrap(err, "can't select lots"))
+		return
+	}
+	err = json.NewEncoder(w).Encode(data)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write lots"))
+		return
+	}
+}
+func (h *AuctionHandler) PostLots(w http.ResponseWriter, r *http.Request) {
+	var lotData lot.Lot
+	err := json.NewDecoder(r.Body).Decode(&lotData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	lotData.CreatorID = r.Context().Value(userKey).(int)
+	err = (*h.storage).AddLot(&lotData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = json.NewEncoder(w).Encode(lotData)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write lot"))
+		return
+	}
+
+}
+func (h *AuctionHandler) GetLot(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	lotData := lot.Lot{ID: id}
+	err = (*h.storage).GetLot(&lotData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-
-	if _, err := w.Write(bytes); err != nil {
-		log.New().Errorf("can't write bytes")
+	err = json.NewEncoder(w).Encode(lotData)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write lot"))
 		return
 	}
 }
-func (h *AuctionHandler) NotImplemented(w http.ResponseWriter, r *http.Request) {
-	log.New().Infof("Request not implemented %s %s: %s", r.Method, r.RequestURI, r.Context().Value("User"))
+func (h *AuctionHandler) PutLot(w http.ResponseWriter, r *http.Request) {
+	// Лот в БД
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	lotData := lot.Lot{ID: id, Status: lot.Created.String()}
+	err = (*h.storage).GetLot(&lotData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if lotData.CreatorID != r.Context().Value(userKey) {
+		http.Error(w, "пользователь не соответствует создателю", http.StatusNotFound)
+		return
+	}
+	// Новый лот
+	var newLot lot.Lot
+	err = json.NewDecoder(r.Body).Decode(&newLot)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	newLot.ID = id
+	err = (*h.storage).UpdateLot(&newLot)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	err = json.NewEncoder(w).Encode(newLot)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write lot"))
+		return
+	}
+}
+func (h *AuctionHandler) DeleteLot(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	lotData := lot.Lot{ID: id, Status: lot.Created.String(), CreatorID: r.Context().Value(userKey).(int)}
+	err = (*h.storage).DeleteLot(&lotData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	http.Error(w, "Лот успешно удалён.", http.StatusNoContent)
+}
+
+func (h *AuctionHandler) BuyLot(w http.ResponseWriter, r *http.Request) {
+	type BuyLot struct {
+		Price int
+	}
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var price BuyLot
+	err = json.NewDecoder(r.Body).Decode(&price)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	newLot, err := (*h.storage).BuyLot(id, r.Context().Value(userKey).(int), price.Price)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	err = json.NewEncoder(w).Encode(newLot)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write lots"))
+		return
+	}
+}
+func (h *AuctionHandler) GetUserLots(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if id == 0 {
+		id = r.Context().Value(userKey).(int)
+	}
+	var lots []lot.Lot
+	switch strings.ToLower(r.URL.Query().Get("type")) {
+	case "own":
+		lots, err = (*h.storage).GetOwnLots(&lot.Lot{CreatorID: id}, &lot.Lot{})
+	case "buyed":
+		lots, err = (*h.storage).GetOwnLots(&lot.Lot{BuyerID: &id}, &lot.Lot{})
+	default:
+		lots, err = (*h.storage).GetOwnLots(&lot.Lot{CreatorID: id}, &lot.Lot{BuyerID: &id})
+
+	}
+	if err != nil || len(lots) == 0 {
+		http.Error(w, "no data", http.StatusNotFound)
+		return
+	}
+	err = json.NewEncoder(w).Encode(lots)
+	if err != nil {
+		h.logError(r, errors.Wrap(err, "can't write lot"))
+		return
+	}
 }
