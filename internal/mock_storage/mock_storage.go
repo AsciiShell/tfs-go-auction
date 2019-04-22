@@ -118,18 +118,18 @@ func (mr *MockStorageMockRecorder) AddSession(s interface{}) *gomock.Call {
 }
 
 // GetLots mocks base method
-func (m *MockStorage) GetLots() ([]lot.Lot, error) {
+func (m *MockStorage) GetLots(condition lot.Lot) ([]lot.Lot, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLots")
+	ret := m.ctrl.Call(m, "GetLots", condition)
 	ret0, _ := ret[0].([]lot.Lot)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetLots indicates an expected call of GetLots
-func (mr *MockStorageMockRecorder) GetLots() *gomock.Call {
+func (mr *MockStorageMockRecorder) GetLots(condition interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLots", reflect.TypeOf((*MockStorage)(nil).GetLots))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLots", reflect.TypeOf((*MockStorage)(nil).GetLots), condition)
 }
 
 // GetLot mocks base method
@@ -146,6 +146,36 @@ func (mr *MockStorageMockRecorder) GetLot(l interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLot", reflect.TypeOf((*MockStorage)(nil).GetLot), l)
 }
 
+// GetOwnLots mocks base method
+func (m *MockStorage) GetOwnLots(l, r *lot.Lot) ([]lot.Lot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOwnLots", l, r)
+	ret0, _ := ret[0].([]lot.Lot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOwnLots indicates an expected call of GetOwnLots
+func (mr *MockStorageMockRecorder) GetOwnLots(l, r interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOwnLots", reflect.TypeOf((*MockStorage)(nil).GetOwnLots), l, r)
+}
+
+// BuyLot mocks base method
+func (m *MockStorage) BuyLot(id, owner, price int) (lot.Lot, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BuyLot", id, owner, price)
+	ret0, _ := ret[0].(lot.Lot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BuyLot indicates an expected call of BuyLot
+func (mr *MockStorageMockRecorder) BuyLot(id, owner, price interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuyLot", reflect.TypeOf((*MockStorage)(nil).BuyLot), id, owner, price)
+}
+
 // AddLot mocks base method
 func (m *MockStorage) AddLot(l *lot.Lot) error {
 	m.ctrl.T.Helper()
@@ -160,16 +190,30 @@ func (mr *MockStorageMockRecorder) AddLot(l interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLot", reflect.TypeOf((*MockStorage)(nil).AddLot), l)
 }
 
-// SetLot mocks base method
-func (m *MockStorage) SetLot(l *lot.Lot) error {
+// UpdateLot mocks base method
+func (m *MockStorage) UpdateLot(n *lot.Lot) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetLot", l)
+	ret := m.ctrl.Call(m, "UpdateLot", n)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetLot indicates an expected call of SetLot
-func (mr *MockStorageMockRecorder) SetLot(l interface{}) *gomock.Call {
+// UpdateLot indicates an expected call of UpdateLot
+func (mr *MockStorageMockRecorder) UpdateLot(n interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLot", reflect.TypeOf((*MockStorage)(nil).SetLot), l)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLot", reflect.TypeOf((*MockStorage)(nil).UpdateLot), n)
+}
+
+// DeleteLot mocks base method
+func (m *MockStorage) DeleteLot(l *lot.Lot) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLot", l)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLot indicates an expected call of DeleteLot
+func (mr *MockStorageMockRecorder) DeleteLot(l interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLot", reflect.TypeOf((*MockStorage)(nil).DeleteLot), l)
 }

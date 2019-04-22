@@ -31,6 +31,8 @@ func loadConfig() config {
 	cfg.DB.Database = environment.GetStr("DB_DATABASE", "auction")
 	cfg.DB.Host = environment.GetStr("DB_HOST", "localhost:5432")
 	cfg.DB.Repetitions = environment.GetInt("DB_ATTEMPTS", 10)
+	cfg.DB.Debug = environment.GetBool("DB_DEBUG", false)
+	cfg.DB.Migrate = environment.GetBool("DB_MIGRATE", false)
 	cfg.MaxRequests = environment.GetInt("MAX_REQUESTS", 100)
 	cfg.HTTPAddress = environment.GetStr("ADDRESS", ":8000")
 	cfg.HTTPTimeout = environment.GetDuration("HTTP_TIMEOUT", 500*time.Second)
@@ -50,17 +52,15 @@ func main() {
 	defer func() {
 		_ = db.DB.Close()
 	}()
-	db.Migrate()
-	log.New().Info("Migrate completed")
+	logger := log.New()
 
-	handler := NewAuctionHandler(db)
+	handler := NewAuctionHandler(db, &logger)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Throttle(cfg.MaxRequests))
-
-	//r.Use(middleware.Timeout(cfg.HTTPTimeout))
+	r.Use(middleware.Timeout(cfg.HTTPTimeout))
 
 	r.Route("/v1/auction", func(r chi.Router) {
 		r.Post("/signup", handler.PostSignup)
@@ -69,14 +69,16 @@ func main() {
 			r.Use(handler.Authenticator)
 			r.Put("/{id}", handler.PutUser)
 			r.Get("/{id}", handler.GetUser)
-			r.Get("/{id}/lots", handler.NotImplemented)
+			r.Get("/{id}/lots", handler.GetUserLots)
 		})
 		r.Route("/lots", func(r chi.Router) {
-			r.Get("/", handler.NotImplemented)
-			r.Post("/", handler.NotImplemented)
-			r.Put("/{id}/buy", handler.NotImplemented)
-			r.Get("/{id}", handler.NotImplemented)
-			r.Put("/{id}", handler.NotImplemented)
+			r.Use(handler.Authenticator)
+			r.Get("/", handler.GetLots)
+			r.Post("/", handler.PostLots)
+			r.Put("/{id}/buy", handler.BuyLot)
+			r.Get("/{id}", handler.GetLot)
+			r.Put("/{id}", handler.PutLot)
+			r.Delete("/{id}", handler.DeleteLot)
 		})
 	})
 
@@ -84,7 +86,7 @@ func main() {
 	filesDir := filepath.Join(workDir, "swagger")
 	FileServer(r, "/swagger", http.Dir(filesDir))
 	if err := http.ListenAndServe(cfg.HTTPAddress, r); err != nil {
-		log.New().Fatalf("server error:%s", err)
+		logger.Fatalf("server error:%s", err)
 	}
 }
 
