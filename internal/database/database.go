@@ -112,9 +112,25 @@ func (d *DataBase) AddSession(s *session.Session) error {
 	return nil
 }
 
+func (d *DataBase) attachUsersToLot(l *lot.Lot) {
+	var write user.User
+	d.DB.Where("id = ?", l.CreatorID).First(&write)
+	write.IsShort = true
+	l.Creator = &write
+	if l.BuyerID != nil {
+		var write2 user.User
+		d.DB.Where("id = ?", *l.BuyerID).First(&write2)
+		write2.IsShort = true
+		l.Buyer = &write2
+	}
+
+}
 func (d *DataBase) GetLots(condition lot.Lot) ([]lot.Lot, error) {
 	var result []lot.Lot
 	d.DB.Where(condition).Find(&result)
+	for i := range result {
+		d.attachUsersToLot(&result[i])
+	}
 	return result, nil
 }
 
@@ -122,6 +138,7 @@ func (d *DataBase) GetLot(l *lot.Lot) error {
 	if err := d.DB.Where(&l).First(&l).Error; err != nil {
 		return errors.Wrapf(err, "lot not found %+v", l)
 	}
+	d.attachUsersToLot(l)
 	return nil
 }
 
@@ -129,6 +146,7 @@ func (d *DataBase) AddLot(l *lot.Lot) error {
 	if err := d.DB.Create(&l).Error; err != nil {
 		return errors.Wrap(err, "can't create lot")
 	}
+	d.attachUsersToLot(l)
 	return nil
 }
 
@@ -143,6 +161,10 @@ func (d *DataBase) UpdateLot(n *lot.Lot) error {
 	if err := d.DB.Model(&lot.Lot{}).Updates(*n).Error; err != nil {
 		return errors.Wrap(err, "can't update lot")
 	}
+	if err := d.DB.Where(" id = ?", n.ID).First(&n).Error; err != nil {
+		return errors.Wrapf(err, "lot not found %+v", n)
+	}
+	d.attachUsersToLot(n)
 	return nil
 }
 
@@ -159,6 +181,9 @@ func (d *DataBase) DeleteLot(l *lot.Lot) error {
 func (d *DataBase) GetOwnLots(l *lot.Lot, r *lot.Lot) ([]lot.Lot, error) {
 	var result []lot.Lot
 	d.DB.Where(l).Or(r).Find(&result)
+	for i := range result {
+		d.attachUsersToLot(&result[i])
+	}
 	return result, nil
 }
 func (d *DataBase) BuyLot(id int, owner int, price int) (lot.Lot, error) {
@@ -174,8 +199,12 @@ WHERE id = ?
   AND (buyer_id != ? OR buyer_id IS NULL)
   AND (buy_price < ? OR buy_price IS NULL)
   AND (? - min_price) % price_step = 0`, price, owner, id, owner, owner, price, price)
-	if result.Error != nil || result.RowsAffected == 0 {
+	if result.Error != nil {
 		return lot.Lot{}, fmt.Errorf("can't buy lot :%+v", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return lot.Lot{}, fmt.Errorf("can't buy lot, check lot status, owner and buyer statuses, your price: it should be more than a last price and equal n*step + start_price")
+
 	}
 	var lotResult lot.Lot
 	if err := d.DB.Where("id = ?", id).First(&lotResult).Error; err != nil {
@@ -183,6 +212,6 @@ WHERE id = ?
 		return lot.Lot{}, errors.Wrapf(err, "can't fetch new lot, rollback")
 
 	}
-
+	d.attachUsersToLot(&lotResult)
 	return lotResult, nil
 }

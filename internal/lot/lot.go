@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"gitlab.com/asciishell/tfs-go-auction/internal/user"
 )
 
 type Status int
@@ -46,12 +48,14 @@ type Lot struct {
 	Description *string    `json:"description"`
 	MinPrice    float64    `json:"min_price" gorm:"NOT NULL;type:numeric"`
 	PriceStep   float64    `json:"price_step" gorm:"NOT NULL;type:numeric;default:1"`
-	BuyPrice    *float64   `json:"buy_price" gorm:"type:numeric"`
+	BuyPrice    *float64   `json:"buy_price,omitempty" gorm:"type:numeric"`
 	Status      string     `json:"status" gorm:"NOT NULL;type:lot_status;default:'created'"`
 	EndAt       time.Time  `json:"end_at" gorm:"NOT NULL"`
-	CreatorID   int        `json:"creator_id" gorm:"NOT NULL"`
-	BuyerID     *int       `json:"buyer_id" gorm:""`
+	CreatorID   int        `json:"-" gorm:"NOT NULL"`
+	Creator     *user.User `json:"creator" gorm:"-"`
+	BuyerID     *int       `json:"-" gorm:""`
+	Buyer       *user.User `json:"buyer,omitempty" gorm:"-"`
 	CreatedAt   time.Time  `json:"created_at" gorm:"NOT NULL"`
 	UpdatedAt   time.Time  `json:"updated_at" gorm:"NOT NULL"`
-	DeletedAt   *time.Time `json:"deleted_at"`
+	DeletedAt   *time.Time `json:"-"`
 }
