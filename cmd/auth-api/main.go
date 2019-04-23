@@ -7,13 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/asciishell/tfs-go-auction/pkg/environment"
-
-	"gitlab.com/asciishell/tfs-go-auction/internal/database"
-	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
-
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"gitlab.com/asciishell/tfs-go-auction/internal/background"
+	"gitlab.com/asciishell/tfs-go-auction/internal/database"
+	"gitlab.com/asciishell/tfs-go-auction/pkg/environment"
+	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
 )
 
 type config struct {
@@ -55,6 +54,7 @@ func main() {
 	logger := log.New()
 
 	handler := NewAuctionHandler(db, &logger)
+	background.NewBackground(logger, db)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
