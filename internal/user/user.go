@@ -9,15 +9,31 @@ import (
 )
 
 type User struct {
-	ID        int       `json:"id" gorm:"PRIMARY_KEY;AUTO_INCREMENT"`
-	FirstName string    `json:"first_name" gorm:"NOT NULL"`
-	LastName  string    `json:"last_name" gorm:"NOT NULL"`
-	Birthday  time.Time `json:"birthday" gorm:"type:date"`
-	Email     string    `json:"email" gorm:"NOT NULL;unique_index"`
-	Password  string    `json:"-" gorm:"NOT NULL"`
-	CreatedAt time.Time `json:"created_at" gorm:"NOT NULL"`
-	UpdatedAt time.Time `json:"-" gorm:"NOT NULL"`
+	ID        int       `gorm:"PRIMARY_KEY;AUTO_INCREMENT"`
+	FirstName string    `gorm:"NOT NULL"`
+	LastName  string    `gorm:"NOT NULL"`
+	Birthday  time.Time `gorm:"type:date"`
+	Email     string    `gorm:"NOT NULL;unique_index"`
+	Password  string    `gorm:"NOT NULL"`
+	CreatedAt time.Time `gorm:"NOT NULL"`
+	UpdatedAt time.Time `gorm:"NOT NULL"`
+	IsShort   bool
 }
+type userShort struct {
+	ID        int    `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+type userFull struct {
+	ID        int       `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Birthday  string    `json:"birthday"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+const BirthdayFormat = "2006-01-02"
 
 func (u *User) UnmarshalJSON(b []byte) error {
 	var user map[string]string
@@ -46,6 +62,12 @@ func (u *User) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (u User) MarshalJSON() ([]byte, error) {
+	if u.IsShort {
+		return json.Marshal(userShort{ID: u.ID, FirstName: u.FirstName, LastName: u.LastName})
+	}
+	return json.Marshal(userFull{ID: u.ID, FirstName: u.FirstName, LastName: u.LastName, Birthday: u.Birthday.Format(BirthdayFormat), Email: u.Email, CreatedAt: u.CreatedAt})
+}
 func HashPassword(password string) (string, error) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
