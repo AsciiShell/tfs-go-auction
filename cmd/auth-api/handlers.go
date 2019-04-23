@@ -50,11 +50,11 @@ func (h *AuctionHandler) Authenticator(next http.Handler) http.Handler {
 		if err != nil {
 			switch err {
 			case errs.ErrUnauthorized:
-				http.Error(w, "", http.StatusUnauthorized)
+				http.Error(w, errs.NewErrorStr("Не авторизован").StringJSON(), http.StatusUnauthorized)
 			case errs.ErrNotFound:
-				http.Error(w, err.Error(), http.StatusUnauthorized)
+				http.Error(w, errs.NewError(err).StringJSON(), http.StatusUnauthorized)
 			default:
-				http.Error(w, "Неизвестная ошибка авторизации", http.StatusUnauthorized)
+				http.Error(w, errs.NewErrorStr("Неизвестная ошибка авторизации").StringJSON(), http.StatusUnauthorized)
 			}
 			return
 		}
@@ -67,29 +67,29 @@ func (h *AuctionHandler) PostSignup(w http.ResponseWriter, r *http.Request) {
 	var userData user.User
 	err := json.NewDecoder(r.Body).Decode(&userData)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Неверные входные данные %s", err), http.StatusBadRequest)
+		http.Error(w, errs.NewError(errors.Wrapf(err, "Неверные входные данные")).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	err = services.Registry(&userData, h.storage)
 	switch err {
 	case nil:
-		http.Error(w, "Пользователь зарегистрирован", http.StatusCreated)
+		http.Error(w, "", http.StatusCreated)
 	case errs.ErrEmptyCredits:
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 	default:
-		http.Error(w, "Невозможно зарегистрировать пользователя, конфликт. Например, email уже существует в системе", http.StatusConflict)
+		http.Error(w, errs.NewError(errors.Wrapf(err, "Невозможно зарегистрировать пользователя, конфликт. Например, email уже существует в системе")).StringJSON(), http.StatusConflict)
 	}
 }
 
 func (h *AuctionHandler) PostSignin(w http.ResponseWriter, r *http.Request) {
 	var userData user.User
 	if err := json.NewDecoder(r.Body).Decode(&userData); err != nil {
-		http.Error(w, "Неверные входные данные", http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	sess, err := auth.Signin(userData.Email, userData.Password, h.storage)
 	if err != nil {
-		http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
+		http.Error(w, errs.NewError(errors.Wrapf(err, "Пользователь не авторизован")).StringJSON(), http.StatusUnauthorized)
 		return
 	}
 	err = json.NewEncoder(w).Encode(sess)
@@ -103,24 +103,24 @@ func (h *AuctionHandler) PostSignin(w http.ResponseWriter, r *http.Request) {
 func (h *AuctionHandler) PutUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, "Неверные входные данные", http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	if id != 0 && id != r.Context().Value(userKey).(int) {
-		http.Error(w, "Запрещено", http.StatusForbidden)
+		http.Error(w, errs.NewErrorStr("Запрещено").StringJSON(), http.StatusForbidden)
 		return
 	}
 	userData := user.User{ID: r.Context().Value(userKey).(int)}
 	err = (*h.storage).GetUser(&userData)
 	if err != nil {
-		http.Error(w, "Не найден", http.StatusNotFound)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
 		return
 	}
 
 	var newUser user.User
 	err = json.NewDecoder(r.Body).Decode(&newUser)
 	if err != nil {
-		http.Error(w, "Неверные входные данные", http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	userData.Update(newUser)
@@ -134,7 +134,7 @@ func (h *AuctionHandler) PutUser(w http.ResponseWriter, r *http.Request) {
 func (h *AuctionHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	if id == 0 {
@@ -142,7 +142,7 @@ func (h *AuctionHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 	usr, err := services.FindUserByID(id, h.storage)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
 		return
 	}
 	err = json.NewEncoder(w).Encode(usr)
@@ -159,7 +159,7 @@ func (h *AuctionHandler) GetLots(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := (*h.storage).GetLots(selector)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusInternalServerError)
 		h.logError(r, errors.Wrap(err, "can't select lots"))
 		return
 	}
@@ -173,13 +173,13 @@ func (h *AuctionHandler) PostLots(w http.ResponseWriter, r *http.Request) {
 	var lotData lot.Lot
 	err := json.NewDecoder(r.Body).Decode(&lotData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	lotData.CreatorID = r.Context().Value(userKey).(int)
 	err = (*h.storage).AddLot(&lotData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	err = json.NewEncoder(w).Encode(lotData)
@@ -192,13 +192,13 @@ func (h *AuctionHandler) PostLots(w http.ResponseWriter, r *http.Request) {
 func (h *AuctionHandler) GetLot(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	lotData := lot.Lot{ID: id}
 	err = (*h.storage).GetLot(&lotData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
 		return
 	}
 	err = json.NewEncoder(w).Encode(lotData)
@@ -211,30 +211,30 @@ func (h *AuctionHandler) PutLot(w http.ResponseWriter, r *http.Request) {
 	// Лот в БД
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	lotData := lot.Lot{ID: id, Status: lot.Created.String()}
 	err = (*h.storage).GetLot(&lotData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
 		return
 	}
 	if lotData.CreatorID != r.Context().Value(userKey) {
-		http.Error(w, "пользователь не соответствует создателю", http.StatusNotFound)
+		http.Error(w, errs.NewErrorStr("пользователь не соответствует создателю").StringJSON(), http.StatusNotFound)
 		return
 	}
 	// Новый лот
 	var newLot lot.Lot
 	err = json.NewDecoder(r.Body).Decode(&newLot)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	newLot.ID = id
 	err = (*h.storage).UpdateLot(&newLot)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
 		return
 	}
 	err = json.NewEncoder(w).Encode(newLot)
@@ -246,16 +246,16 @@ func (h *AuctionHandler) PutLot(w http.ResponseWriter, r *http.Request) {
 func (h *AuctionHandler) DeleteLot(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	lotData := lot.Lot{ID: id, Status: lot.Created.String(), CreatorID: r.Context().Value(userKey).(int)}
 	err = (*h.storage).DeleteLot(&lotData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
 		return
 	}
-	http.Error(w, "Лот успешно удалён.", http.StatusNoContent)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 func (h *AuctionHandler) BuyLot(w http.ResponseWriter, r *http.Request) {
@@ -264,18 +264,18 @@ func (h *AuctionHandler) BuyLot(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	var price BuyLot
 	err = json.NewDecoder(r.Body).Decode(&price)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	newLot, err := (*h.storage).BuyLot(id, r.Context().Value(userKey).(int), price.Price)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusConflict)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusConflict)
 		return
 	}
 	err = json.NewEncoder(w).Encode(newLot)
@@ -287,7 +287,7 @@ func (h *AuctionHandler) BuyLot(w http.ResponseWriter, r *http.Request) {
 func (h *AuctionHandler) GetUserLots(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
 		return
 	}
 	if id == 0 {
