@@ -215,3 +215,14 @@ WHERE id = ?
 	d.attachUsersToLot(&lotResult)
 	return lotResult, nil
 }
+func (d *DataBase) CloseLots() (int, error) {
+	result := d.DB.Exec(`UPDATE lots
+SET status = 'finished'
+WHERE deleted_at IS NULL
+  AND status = 'active'
+  AND end_at < NOW()`)
+	if result.Error != nil {
+		return 0, errors.Wrapf(result.Error, "can't delete lot")
+	}
+	return int(result.RowsAffected), nil
+}

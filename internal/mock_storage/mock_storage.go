@@ -217,3 +217,18 @@ func (mr *MockStorageMockRecorder) DeleteLot(l interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLot", reflect.TypeOf((*MockStorage)(nil).DeleteLot), l)
 }
+
+// CloseLots mocks base method
+func (m *MockStorage) CloseLots() (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloseLots")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloseLots indicates an expected call of CloseLots
+func (mr *MockStorageMockRecorder) CloseLots() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseLots", reflect.TypeOf((*MockStorage)(nil).CloseLots))
+}

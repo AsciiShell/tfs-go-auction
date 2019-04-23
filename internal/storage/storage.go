@@ -23,4 +23,5 @@ type Storage interface {
 	AddLot(l *lot.Lot) error
 	UpdateLot(n *lot.Lot) error
 	DeleteLot(l *lot.Lot) error
+	CloseLots() (int, error)
 }
