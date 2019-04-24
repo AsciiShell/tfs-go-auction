@@ -67,7 +67,6 @@ deploy:
     - make ci-deploy
   only:
     - master
-    - dev_prod
     - tags
   tags: [docker]
 
