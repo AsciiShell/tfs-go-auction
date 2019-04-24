@@ -25,11 +25,16 @@ func Signin(email string, password string, storage *storage.Storage) (session.Se
 }
 
 func HandleToken(r *http.Request, s *storage.Storage) (*session.Session, error) {
-	token := strings.Split(r.Header.Get("Authorization"), " ")
-	if len(token) != 2 || token[0] != "Bearer" {
-		return nil, errs.ErrUnauthorized
+	var token string
+	headerPair := strings.Split(r.Header.Get("Authorization"), " ")
+	if len(headerPair) == 2 && headerPair[0] == "Bearer" {
+		token = headerPair[1]
 	}
-	sess, err := services.GetSession(token[1], s)
+	cookie, err := r.Cookie("BearerToken")
+	if token == "" && err == nil {
+		token = cookie.Value
+	}
+	sess, err := services.GetSession(token, s)
 	if err != nil || sess.ValidUntil.Before(time.Now()) {
 		return nil, errs.ErrNotFound
 	}

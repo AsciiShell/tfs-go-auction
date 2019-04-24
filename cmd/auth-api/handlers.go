@@ -92,6 +92,7 @@ func (h *AuctionHandler) PostSignin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errs.NewError(errors.Wrapf(err, "Пользователь не авторизован")).StringJSON(), http.StatusUnauthorized)
 		return
 	}
+	http.SetCookie(w, &http.Cookie{Name: "BearerToken", Value: sess.SessionID, Path: "/", Expires: sess.ValidUntil})
 	err = json.NewEncoder(w).Encode(sess)
 	if err != nil {
 		h.logError(r, errors.Wrap(err, "can't write session"))
