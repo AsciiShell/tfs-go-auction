@@ -86,7 +86,7 @@ test:
 ci-deploy:
 	ssh -t root@$$TARGET_HOST 'cd auth-api && docker-compose stop'
 	scp ./docker-compose.yml root@$$TARGET_HOST:auth-api/docker-compose.yml
-	ssh -t root@$$TARGET_HOST 'cd auth-api && IMAGE_TAG=$(DOCKER_IMAGE_TAG) docker-compose up -d'
+	ssh -t root@$$TARGET_HOST 'cd auth-api && IMAGE_TAG=$(DOCKER_IMAGE_TAG) DB_URL=$(DB_URL) docker-compose up -d'
 
 .PHONY: mock
 mock:
