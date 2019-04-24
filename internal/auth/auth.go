@@ -34,6 +34,9 @@ func HandleToken(r *http.Request, s *storage.Storage) (*session.Session, error) 
 	if token == "" && err == nil {
 		token = cookie.Value
 	}
+	if token == "" {
+		return nil, errs.ErrNotFound
+	}
 	sess, err := services.GetSession(token, s)
 	if err != nil || sess.ValidUntil.Before(time.Now()) {
 		return nil, errs.ErrNotFound

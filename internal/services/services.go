@@ -2,7 +2,10 @@ package services
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
 
 	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
 
@@ -73,4 +76,31 @@ func GetSession(sessionID string, storage *storage.Storage) (*session.Session, e
 
 	}
 	return &sess, nil
+}
+func GetLots(lotType string, s storage.Storage) ([]lot.Lot, error) {
+	t, err := lot.NewStatus(lotType)
+	selector := lot.Lot{}
+	if err == nil {
+		selector.Status = t.String()
+	}
+	data, err := s.GetLots(selector)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't select lots")
+	}
+	return data, nil
+}
+
+func GetUserLots(id int, lotType string, s storage.Storage) ([]lot.Lot, error) {
+	var lots []lot.Lot
+	var err error
+	switch strings.ToLower(lotType) {
+	case "own":
+		lots, err = s.GetOwnLots(&lot.Lot{CreatorID: id}, &lot.Lot{})
+	case "buyed":
+		lots, err = s.GetOwnLots(&lot.Lot{BuyerID: &id}, &lot.Lot{})
+	default:
+		lots, err = s.GetOwnLots(&lot.Lot{CreatorID: id}, &lot.Lot{BuyerID: &id})
+
+	}
+	return lots, err
 }

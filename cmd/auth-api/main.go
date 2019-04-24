@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/asciishell/tfs-go-auction/internal/template"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"gitlab.com/asciishell/tfs-go-auction/internal/background"
@@ -53,7 +55,7 @@ func main() {
 	}()
 	logger := log.New()
 
-	handler := NewAuctionHandler(db, &logger)
+	handler := NewAuctionHandler(db, &logger, template.NewTemplates())
 	background.NewBackground(logger, db)
 
 	r := chi.NewRouter()
@@ -82,6 +84,17 @@ func main() {
 		})
 	})
 
+	r.Route("/auction", func(r chi.Router) {
+		r.Route("/users", func(r chi.Router) {
+			r.Use(handler.Authenticator)
+			r.Get("/{id}/lots", handler.HTMLGetUserLots)
+		})
+		r.Route("/lots", func(r chi.Router) {
+			r.Use(handler.Authenticator)
+			r.Get("/", handler.HTMLGetLots)
+			r.Get("/{id}", handler.HTMLGetLot)
+		})
+	})
 	workDir, _ := os.Getwd()
 	filesDir := filepath.Join(workDir, "swagger")
 	FileServer(r, "/swagger", http.Dir(filesDir))

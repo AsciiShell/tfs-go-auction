@@ -1,0 +1,15 @@
+{{define "head"}}Список лотов{{end}}
+{{define "body"}}
+    <h1>Лоты</h1>
+    <form method="get" action="?">
+        <label>
+            <select class="custom-select" onchange="this.form.submit()" name="status">
+                <option value="">Все лоты</option>
+                <option value="created" {{if eq .LotType "created"}}selected{{end}}>Новые</option>
+                <option value="active" {{if eq .LotType "active"}}selected{{end}}>Активные</option>
+                <option value="finished" {{if eq .LotType "finished"}}selected{{end}}>Завершенные</option>
+            </select>
+        </label>
+    </form>
+    {{template "lot_table" .}}
+{{end}}

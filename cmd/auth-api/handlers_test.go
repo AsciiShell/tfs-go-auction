@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gitlab.com/asciishell/tfs-go-auction/internal/template"
+
 	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
 
 	"github.com/golang/mock/gomock"
@@ -70,7 +72,7 @@ func TestAuctionHandler_PostSignup(t *testing.T) {
 				m.EXPECT().AddUser(gomock.Any()).Return(nil).Times(1)
 			}
 			logger := log.New()
-			handler := NewAuctionHandler(m, &logger)
+			handler := NewAuctionHandler(m, &logger, template.Templates{})
 			mux := http.NewServeMux()
 			mux.HandleFunc("/", handler.PostSignup)
 			ts := httptest.NewServer(mux)
@@ -142,7 +144,7 @@ func TestAuctionHandler_PostSignin(t *testing.T) {
 				}
 			}
 			logger := log.New()
-			handler := NewAuctionHandler(m, &logger)
+			handler := NewAuctionHandler(m, &logger, template.Templates{})
 			mux := http.NewServeMux()
 			mux.HandleFunc("/", handler.PostSignin)
 			ts := httptest.NewServer(mux)
