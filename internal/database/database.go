@@ -20,30 +20,26 @@ type DataBase struct {
 }
 
 type DBCredential struct {
-	User        string
-	Password    string
-	Host        string
-	Database    string
+	URL         string
 	Repetitions int
 	Debug       bool
 	Migrate     bool
 }
 
 func NewDataBaseStorage(credential DBCredential) (*DataBase, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable&fallback_application_name=fintech-app", credential.User, credential.Password, credential.Host, credential.Database)
 	var err error
 	var db *gorm.DB
 	logger := log.New()
 	for i := 0; i < credential.Repetitions; i++ {
 		logger.Infof("Take %d/%d to connect to database", i+1, credential.Repetitions)
-		db, err = gorm.Open("postgres", dsn)
+		db, err = gorm.Open("postgres", credential.URL)
 		if err == nil && db.DB().Ping() == nil {
 			break
 		}
 		time.Sleep(1 * time.Second)
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't connect to database, dsn %s", dsn)
+		return nil, errors.Wrapf(err, "can't connect to database, dsn %s", credential.URL)
 	}
 	db.LogMode(credential.Debug)
 	result := DataBase{DB: db}

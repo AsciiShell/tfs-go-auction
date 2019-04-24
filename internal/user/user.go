@@ -17,7 +17,7 @@ type User struct {
 	Password  string    `gorm:"NOT NULL"`
 	CreatedAt time.Time `gorm:"NOT NULL"`
 	UpdatedAt time.Time `gorm:"NOT NULL"`
-	IsShort   bool
+	IsShort   bool      `sql:"-"`
 }
 type userShort struct {
 	ID        int    `json:"id"`

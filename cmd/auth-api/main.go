@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,10 +28,7 @@ type config struct {
 
 func loadConfig() config {
 	cfg := config{}
-	cfg.DB.User = environment.GetStr("DB_USER", "auction")
-	cfg.DB.Password = environment.GetStr("DB_PASSWORD", "postgres")
-	cfg.DB.Database = environment.GetStr("DB_DATABASE", "auction")
-	cfg.DB.Host = environment.GetStr("DB_HOST", "localhost:5432")
+	cfg.DB.URL = environment.GetStr("BASE64_DB_URL", "")
 	cfg.DB.Repetitions = environment.GetInt("DB_ATTEMPTS", 10)
 	cfg.DB.Debug = environment.GetBool("DB_DEBUG", false)
 	cfg.DB.Migrate = environment.GetBool("DB_MIGRATE", false)
@@ -41,6 +39,14 @@ func loadConfig() config {
 	if cfg.PrintConfig {
 		log.New().Infof("%+v", cfg)
 	}
+	if cfg.DB.URL != "" {
+		dbURL, err := base64.StdEncoding.DecodeString(cfg.DB.URL)
+		if err != nil {
+			log.New().Fatalf("Can't parse base64 db url: %s", err)
+		}
+		cfg.DB.URL = strings.TrimSpace(string(dbURL))
+	}
+
 	return cfg
 }
 func main() {
