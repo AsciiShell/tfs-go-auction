@@ -1,15 +1,49 @@
 {{define "head"}}Описание лота{{end}}
 {{define "body"}}
+    <script type="text/javascript">
+        function WebSocketPrice() {
+            if ("WebSocket" in window) {
+                var ws = new WebSocket("ws://127.0.0.1:5000/auction/lots_ws");
+
+                ws.onopen = function () {
+                    console.log("WS is opened");
+                };
+
+                ws.onmessage = function (evt) {
+                    let msg = JSON.parse(evt.data);
+                    $("title").empty().append(msg["title"]);
+                    $("desc").empty().append(msg["description"]);
+                    $("min_price").empty().append(msg["min_price"]);
+                    $("step").empty().append(msg["price_step"]);
+                    $("price").empty().append(msg["buy_price"]);
+                    $("status").empty().append(msg["status"]);
+                    $("end").empty().append(msg["end_at"]);
+                    $("create").empty().append(msg["create_at"]);
+                    $("update").empty().append(msg["update_at"]);
+                    $("owner").empty().append(msg["creator"]);
+                    $("byuer").empty().append(msg["buyer"]);
+                };
+
+                ws.onclose = function () {
+                    console.log("WS is closed");
+                };
+            } else {
+                console.log("WebSocket is not supported in your browser");
+            }
+        }
+
+        $(WebSocketPrice);
+    </script>
     <button type="button" class="btn btn-primary" onclick="window.history.back();">Назад</button>
-    <h1>{{.Title}}</h1>
-    <p>{{if .Description}} {{.Description}}{{else}} Нет описания{{end}}</p>
-    <p>Минимальная цена: {{.MinPrice}}</p>
-    <p>Шаг цены: {{.PriceStep}}</p>
-    <p>Цена покупки: {{if .BuyPrice}} {{.BuyPrice}} {{else}} еще не куплено{{end}}</p>
-    <p>Статус: {{.Status}}</p>
-    <p>Время окончения торга: {{.EndAt}}</p>
-    <p>Время создания:{{.CreatedAt}}</p>
-    <p>Время обновления:{{.UpdatedAt}}</p>
-    <p>Владелец: {{.Creator.FirstName}} {{.Creator.LastName}}</p>
-    <p>Покупатель: {{if .Buyer}} {{.Buyer.FirstName}} {{.Buyer.LastName}}{{else}} Нет покупателя {{end}}</p>
+    <h1 id="title">{{.Title}}</h1>
+    <p id="desc">{{if .Description}} {{.Description}}{{else}} Нет описания{{end}}</p>
+    <p id="min_price">Минимальная цена: {{.MinPrice}}</p>
+    <p id="step">Шаг цены: {{.PriceStep}}</p>
+    <p id="price">Цена покупки: {{if .BuyPrice}} {{.BuyPrice}} {{else}} еще не куплено{{end}}</p>
+    <p id="status">Статус: {{.Status}}</p>
+    <p id="end">Время окончения торга: {{.EndAt}}</p>
+    <p id="create">Время создания:{{.CreatedAt}}</p>
+    <p id="update">Время обновления:{{.UpdatedAt}}</p>
+    <p id="owner">Владелец: {{.Creator.FirstName}} {{.Creator.LastName}}</p>
+    <p id="byuer">Покупатель: {{if .Buyer}} {{.Buyer.FirstName}} {{.Buyer.LastName}}{{else}} Нет покупателя {{end}}</p>
 {{end}}
