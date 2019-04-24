@@ -1,0 +1,14 @@
+{{define "head"}}Список лотов пользователя{{end}}
+{{define "body"}}
+    <h1>Лоты пользователя</h1>
+    <form method="get" action="?">
+        <label>
+            <select class="custom-select" onchange="this.form.submit()" name="type">
+                <option value="">Все лоты</option>
+                <option value="own" {{if eq .LotType "own"}}selected{{end}}>Выставленные на продажу</option>
+                <option value="buyed" {{if eq .LotType "buyed"}}selected{{end}}>Купленные</option>
+            </select>
+        </label>
+    </form>
+    {{template "lot_table" .}}
+{{end}}

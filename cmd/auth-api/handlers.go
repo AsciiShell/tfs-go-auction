@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"gitlab.com/asciishell/tfs-go-auction/internal/template"
+
 	"github.com/pkg/errors"
 
 	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
@@ -25,14 +27,15 @@ import (
 type AuctionHandler struct {
 	storage *storage.Storage
 	logger  log.Logger
+	temps   template.Templates
 }
 
 type key int
 
 const userKey key = 0
 
-func NewAuctionHandler(storage storage.Storage, logger *log.Logger) *AuctionHandler {
-	return &AuctionHandler{storage: &storage, logger: *logger}
+func NewAuctionHandler(storage storage.Storage, logger *log.Logger, temps template.Templates) *AuctionHandler {
+	return &AuctionHandler{storage: &storage, logger: *logger, temps: temps}
 }
 
 func (h AuctionHandler) logError(r *http.Request, err error) {
@@ -153,15 +156,11 @@ func (h *AuctionHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *AuctionHandler) GetLots(w http.ResponseWriter, r *http.Request) {
-	t, err := lot.NewStatus(r.URL.Query().Get("status"))
-	selector := lot.Lot{}
-	if err == nil {
-		selector.Status = t.String()
-	}
-	data, err := (*h.storage).GetLots(selector)
+	lotType := r.URL.Query().Get("status")
+	data, err := services.GetLots(lotType, *h.storage)
 	if err != nil {
 		http.Error(w, errs.NewError(err).StringJSON(), http.StatusInternalServerError)
-		h.logError(r, errors.Wrap(err, "can't select lots"))
+		h.logError(r, err)
 		return
 	}
 	err = json.NewEncoder(w).Encode(data)
@@ -294,18 +293,10 @@ func (h *AuctionHandler) GetUserLots(w http.ResponseWriter, r *http.Request) {
 	if id == 0 {
 		id = r.Context().Value(userKey).(int)
 	}
-	var lots []lot.Lot
-	switch strings.ToLower(r.URL.Query().Get("type")) {
-	case "own":
-		lots, err = (*h.storage).GetOwnLots(&lot.Lot{CreatorID: id}, &lot.Lot{})
-	case "buyed":
-		lots, err = (*h.storage).GetOwnLots(&lot.Lot{BuyerID: &id}, &lot.Lot{})
-	default:
-		lots, err = (*h.storage).GetOwnLots(&lot.Lot{CreatorID: id}, &lot.Lot{BuyerID: &id})
-
-	}
+	lotType := strings.ToLower(r.URL.Query().Get("type"))
+	lots, err := services.GetUserLots(id, lotType, *h.storage)
 	if err != nil || len(lots) == 0 {
-		http.Error(w, "no data", http.StatusNotFound)
+		http.Error(w, errs.NewErrorStr("no data").StringJSON(), http.StatusNotFound)
 		return
 	}
 	err = json.NewEncoder(w).Encode(lots)
@@ -313,4 +304,55 @@ func (h *AuctionHandler) GetUserLots(w http.ResponseWriter, r *http.Request) {
 		h.logError(r, errors.Wrap(err, "can't write lot"))
 		return
 	}
+}
+func (h *AuctionHandler) NotImplemented(w http.ResponseWriter, r *http.Request) {
+	h.logInfo(r, "Request not implemented")
+	_, _ = w.Write([]byte("not implemented"))
+}
+func (h *AuctionHandler) HTMLGetLots(w http.ResponseWriter, r *http.Request) {
+	lotType := r.URL.Query().Get("status")
+	data, err := services.GetLots(lotType, *h.storage)
+	if err != nil {
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusInternalServerError)
+		h.logError(r, err)
+		return
+	}
+	h.temps.Render(w, "all_lots", struct {
+		LotType string
+		Data    []lot.Lot
+	}{LotType: lotType, Data: data})
+}
+func (h *AuctionHandler) HTMLGetUserLots(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
+		return
+	}
+	if id == 0 {
+		id = r.Context().Value(userKey).(int)
+	}
+	lotType := strings.ToLower(r.URL.Query().Get("type"))
+	lots, err := services.GetUserLots(id, lotType, *h.storage)
+	if err != nil {
+		http.Error(w, errs.NewErrorStr("no data").StringJSON(), http.StatusNotFound)
+		return
+	}
+	h.temps.Render(w, "user_lots", struct {
+		LotType string
+		Data    []lot.Lot
+	}{LotType: lotType, Data: lots})
+}
+func (h *AuctionHandler) HTMLGetLot(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusBadRequest)
+		return
+	}
+	lotData := lot.Lot{ID: id}
+	err = (*h.storage).GetLot(&lotData)
+	if err != nil {
+		http.Error(w, errs.NewError(err).StringJSON(), http.StatusNotFound)
+		return
+	}
+	h.temps.Render(w, "lot_details", lotData)
 }

@@ -1,0 +1,30 @@
+{{define "lot_table"}}
+    <div>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th scope="col">ИД лота</th>
+                <th scope="col">Заголовок</th>
+                <th scope="col">Описание</th>
+                <th scope="col">Текущая цена</th>
+                <th scope="col">Статус</th>
+                <th scope="col">Время окончания</th>
+                <th scope="col">Подробнее</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range $key,$value := .Data }}
+                <tr>
+                    <th scope="row">{{$value.ID}}</th>
+                    <td>{{$value.Title}}</td>
+                    <td>{{if $value.Description}} {{$value.Description}} {{end}}</td>
+                    <td>{{if $value.BuyPrice}} {{$value.BuyPrice}} {{end}}</td>
+                    <td>{{$value.Status}}</td>
+                    <td>{{$value.EndAt}}</td>
+                    <td><a class="btn btn-primary" href="/auction/lots/{{$value.ID}}" role="button">Подробнее</a></td>
+                </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+{{end}}
