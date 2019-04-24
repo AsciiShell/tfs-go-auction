@@ -100,6 +100,8 @@ func main() {
 			r.Get("/", handler.HTMLGetLots)
 			r.Get("/{id}", handler.HTMLGetLot)
 		})
+		r.HandleFunc("/lots_ws", handler.WSLotUpdate)
+
 	})
 	workDir, _ := os.Getwd()
 	filesDir := filepath.Join(workDir, "swagger")

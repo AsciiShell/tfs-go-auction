@@ -1,4 +1,37 @@
 {{define "lot_table"}}
+    <script type="text/javascript">
+        function WebSocketPrice() {
+            if ("WebSocket" in window) {
+                var ws = new WebSocket("ws://127.0.0.1:5000/auction/lots_ws");
+
+                ws.onopen = function () {
+                    console.log("WS is opened");
+                };
+
+                ws.onmessage = function (evt) {
+                    let msg = JSON.parse(evt.data);
+                    $("#row_" + msg["id"]).empty();
+                    $("#row_" + msg["id"]).append(`
+                    <th scope="row">${msg["id"]}</th>
+                    <td>${msg["title"]}</td>
+                    <td>${msg["description"]} </td>
+                    <td>${msg["buy_price"]}</td>
+                    <td>${msg["status"]}</td>
+                    <td>${msg["end_at"]}</td>
+                    <td><a class="btn btn-primary" href="/auction/lots/${msg["id"]}" role="button">Подробнее</a></td>
+                `);
+                };
+
+                ws.onclose = function () {
+                    console.log("WS is closed");
+                };
+            } else {
+                console.log("WebSocket is not supported in your browser");
+            }
+        }
+
+        $(WebSocketPrice);
+    </script>
     <div>
         <table class="table table-striped">
             <thead>
@@ -14,7 +47,7 @@
             </thead>
             <tbody>
             {{range $key,$value := .Data }}
-                <tr>
+                <tr id="row_{{$value.ID}}">
                     <th scope="row">{{$value.ID}}</th>
                     <td>{{$value.Title}}</td>
                     <td>{{if $value.Description}} {{$value.Description}} {{end}}</td>

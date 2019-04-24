@@ -29,6 +29,14 @@
   version = "v1.2.0"
 
 [[projects]]
+  digest = "1:7b5c6e2eeaa9ae5907c391a91c132abfd5c9e8a784a341b5625e750c67e6825d"
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
+  version = "v1.4.0"
+
+[[projects]]
   digest = "1:7e63b12cdd7bef2c411d736cb67e28134d39f5d236aa1bfb8f3d55e3ad709eca"
   name = "github.com/jinzhu/gorm"
   packages = [
@@ -135,6 +143,7 @@
     "github.com/go-chi/chi",
     "github.com/go-chi/chi/middleware",
     "github.com/golang/mock/gomock",
+    "github.com/gorilla/websocket",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/postgres",
     "github.com/pkg/errors",

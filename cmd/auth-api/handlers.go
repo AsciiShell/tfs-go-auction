@@ -7,27 +7,58 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
-	"gitlab.com/asciishell/tfs-go-auction/internal/template"
-
-	"github.com/pkg/errors"
-
-	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
-
-	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
+	"github.com/gorilla/websocket"
 
 	"github.com/go-chi/chi"
+	"github.com/pkg/errors"
+
 	"gitlab.com/asciishell/tfs-go-auction/internal/auth"
+	"gitlab.com/asciishell/tfs-go-auction/internal/errs"
+	"gitlab.com/asciishell/tfs-go-auction/internal/lot"
 	"gitlab.com/asciishell/tfs-go-auction/internal/services"
 	"gitlab.com/asciishell/tfs-go-auction/internal/storage"
+	"gitlab.com/asciishell/tfs-go-auction/internal/template"
 	"gitlab.com/asciishell/tfs-go-auction/internal/user"
 	"gitlab.com/asciishell/tfs-go-auction/pkg/log"
 )
 
 type AuctionHandler struct {
-	storage *storage.Storage
-	logger  log.Logger
-	temps   template.Templates
+	storage     *storage.Storage
+	logger      log.Logger
+	temps       template.Templates
+	wsClients   WSClients
+	priceTickCh chan lot.Lot
+	upgrader    websocket.Upgrader
+}
+type WSClients struct {
+	wsConn []*websocket.Conn
+	*sync.Mutex
+}
+
+func (clients *WSClients) AddClient(h *AuctionHandler, conn *websocket.Conn) {
+	clients.Mutex.Lock()
+	clients.wsConn = append(clients.wsConn, conn)
+	clients.Mutex.Unlock()
+	h.logger.Infof("added client, total clients: %d\n", len(h.wsClients.wsConn))
+}
+
+func (clients *WSClients) removeClientByID(h *AuctionHandler, id int) {
+	clients.Mutex.Lock()
+	clients.wsConn = append(clients.wsConn[:id], clients.wsConn[id+1:]...)
+	clients.Mutex.Unlock()
+	h.logger.Infof("removed client #%d, total clients %d\n", id, len(clients.wsConn))
+}
+
+func (clients *WSClients) BroadcastMessage(h *AuctionHandler, message []byte) {
+	for i, c := range clients.wsConn {
+		err := c.WriteMessage(websocket.TextMessage, message)
+		if err != nil {
+			h.logger.Infof("can't broadcast message: %+v\n", err)
+			clients.removeClientByID(h, i)
+		}
+	}
 }
 
 type key int
@@ -35,14 +66,19 @@ type key int
 const userKey key = 0
 
 func NewAuctionHandler(storage storage.Storage, logger *log.Logger, temps template.Templates) *AuctionHandler {
-	return &AuctionHandler{storage: &storage, logger: *logger, temps: temps}
+	h := AuctionHandler{storage: &storage, logger: *logger, temps: temps}
+	h.priceTickCh = make(chan lot.Lot)
+	h.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+	return &h
 }
 
 func (h AuctionHandler) logError(r *http.Request, err error) {
 	h.logger.Errorf("%s %s - %s:%+v", r.Method, r.RequestURI, r.Context().Value(userKey), err)
 }
 
-// nolint:unparam,unused
 func (h AuctionHandler) logInfo(r *http.Request, msg string, args ...interface{}) {
 	h.logger.Infof("%s %s - %+v:%s", r.Method, r.RequestURI, r.Context().Value(userKey), fmt.Sprintf(msg, args...))
 }
@@ -278,6 +314,7 @@ func (h *AuctionHandler) BuyLot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errs.NewError(err).StringJSON(), http.StatusConflict)
 		return
 	}
+	h.priceTickCh <- newLot
 	err = json.NewEncoder(w).Encode(newLot)
 	if err != nil {
 		h.logError(r, errors.Wrap(err, "can't write lots"))
@@ -355,4 +392,26 @@ func (h *AuctionHandler) HTMLGetLot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.temps.Render(w, "lot_details", lotData)
+}
+func (h *AuctionHandler) WSLotUpdate(w http.ResponseWriter, r *http.Request) {
+	conn, err := h.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		h.logError(r, err)
+		return
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	h.wsClients.AddClient(h, conn)
+
+	for {
+		priceTick := <-h.priceTickCh
+		res, err := json.Marshal(priceTick)
+		if err != nil {
+			h.logger.Infof("can't marshal message: %+v\n", err)
+			continue
+		}
+		h.wsClients.BroadcastMessage(h, res)
+	}
+
 }
