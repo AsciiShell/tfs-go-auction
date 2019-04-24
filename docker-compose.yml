@@ -7,3 +7,4 @@ services:
       - "BASE64_DB_URL=${DB_URL}"
     ports:
       - "8000:8000"
+    restart: always
